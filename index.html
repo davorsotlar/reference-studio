@@ -96,6 +96,38 @@ opacity:.88;filter:drop-shadow(0 1px 8px #9efbd44a);transition:inset .2s}
 @media(max-width:879px){.workspace{display:flex;flex-direction:column;gap:8px}.camera-column{width:100%}.side{width:100%;border:0;background:transparent;padding:10px 0 0}.steps{flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;gap:9px;padding:2px 2px 11px}.step{min-width:165px;width:165px;scroll-snap-align:start;align-items:flex-start;min-height:79px}.step .number{margin-top:1px}.step .step-copy{padding-top:1px}.shot-top{margin:0}}
 @media(max-width:520px){.app{padding:0 13px 22px}.topbar{height:55px}.brand-icon{width:31px;height:31px}.brand-name{font-size:13px}.brand-caption{font-size:8px}.local-mark{font-size:9px;padding:6px 9px}.hero{padding:14px 3px 12px}.hero h1{font-size:18px}.hero p{font-size:11px;margin-top:4px}.hero-chip{display:none}.switch{margin-bottom:8px}.preview{aspect-ratio:3/4;max-height:57dvh;border-radius:20px}.cue{font-size:11px;padding:10px 11px;bottom:9px;left:9px;right:9px}.cue::before{font-size:8px}.live{top:12px;left:12px;font-size:9px;padding:7px 9px}.shot-label{top:12px;right:12px;font-size:9px;padding:7px 9px}.start-btn{top:calc(50% + 86px)}.start-btn.live-mode{top:10px}.capturebar{margin-top:8px;padding:3px 12px}.shutter{width:68px;height:68px}.shutter span{width:49px;height:49px}.tool-circle{width:45px;height:45px;border-radius:13px}.status{margin-top:6px}.shots-top{margin:7px 0 9px}.shots-top h2{font-size:14px}.step{min-width:159px;width:159px}.note{margin-top:12px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Face scan overlays: active only after the user arms a photo */
+.scan-overlay{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:hidden;--scan:#70f3e6}
+.scan-overlay canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
+.scan-overlay .scan-sweep{position:absolute;left:5%;right:5%;height:2px;top:12%;
+ background:linear-gradient(90deg,transparent,var(--scan),transparent);opacity:.75;
+ box-shadow:0 0 26px 5px #7af3e72b;animation:scan-sweep 2.4s ease-in-out infinite alternate}
+@keyframes scan-sweep{to{top:84%}}
+.scan-overlay.is-green{--scan:#b9ffb4}
+.scan-overlay.is-green .scan-sweep{animation-play-state:paused;top:47%;opacity:.5}
+.scan-overlay .scan-panel{position:absolute;left:12px;right:12px;top:53px;display:flex;
+ flex-direction:column;align-items:center;gap:8px;text-align:center}
+.scan-panel .scan-title{background:#0b1c1fdc;border:1px solid #72ede063;color:#d5fff7;
+ padding:8px 13px;border-radius:100px;backdrop-filter:blur(14px);font-size:10px;font-weight:850;
+ letter-spacing:1px;box-shadow:0 4px 24px #0003}
+.scan-overlay.is-green .scan-title{background:#154629e8;border-color:#c5ffc6;color:#dcffde}
+.scan-panel .scan-track{height:3px;width:min(220px,70%);background:#3a5652aa;border-radius:99px;overflow:hidden}
+.scan-track span{height:100%;width:0%;display:block;background:var(--scan);border-radius:99px;
+ box-shadow:0 0 13px var(--scan);transition:width .14s linear}
+.preview.scanning .frame{opacity:.65;filter:drop-shadow(0 0 7px #8dffec4d)}
+.preview.scanning.is-green .frame{filter:drop-shadow(0 0 9px #a0ff9e);opacity:1}
+.preview.scanning.is-green .cue{border-color:#aaffaa88;box-shadow:0 0 24px #a0f7ae22;background:#102918ea}
+.preview.scanning .shot-label{color:#b6f8e0}
+.scan-actions{display:flex;align-items:center;justify-content:center;gap:9px;margin:8px auto 2px}
+.scan-actions button{min-height:36px;border-radius:11px;padding:8px 12px;font-size:11px;font-weight:740}
+.scan-actions .manual{background:#1d3130;color:#c9ffe6;border:1px solid #5c988487}
+.scan-actions .cancel{background:#161c24;color:#b4c3c2;border:1px solid #3a454e}
+.scan-flash{position:absolute;z-index:8;inset:0;background:#edfff3;pointer-events:none;
+ opacity:0;transition:opacity .22s}
+.scan-flash.flash{opacity:.78;transition:none}
+@media(max-width:520px){.scan-overlay .scan-panel{top:46px}.scan-panel .scan-title{font-size:9px;padding:7px 10px}}
+@media(prefers-reduced-motion:reduce){.scan-overlay .scan-sweep{animation:none;top:46%}}
 </style></head><body>
 <div class="app">
 <header class="topbar">
@@ -114,17 +146,26 @@ opacity:.88;filter:drop-shadow(0 1px 8px #9efbd44a);transition:inset .2s}
         <video id="camera" autoplay muted playsinline></video>
         <div id="empty" class="empty"><div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55"><path d="M3 8.5h2l2-3h10l2 3h2v11H3z"/><circle cx="12" cy="13.5" r="3.5"/><path d="M5 2v4M2.5 4.5h5"/></svg></div><strong>Kamera je spremna za povezivanje</strong><p>Prvo uključi kameru i postavi lice unutar kutnih oznaka.</p></div>
         <div class="guide"><div id="faceguide" class="frame"></div><div class="horizontal"></div><div class="corners"></div></div>
-        <div class="live" id="liveStatus"><span class="dot"></span><span id="liveText">Spremno</span></div>
+
+        <div id="scanOverlay" class="scan-overlay hide" aria-hidden="true">
+          <canvas id="scanCanvas"></canvas>
+          <div class="scan-sweep"></div>
+          <div class="scan-panel"><span id="scanMessage" class="scan-title">TRAŽIM LICE</span>
+            <div class="scan-track"><span id="scanFill"></span></div>
+          </div>
+        </div>
+        <div id="scanFlash" class="scan-flash" aria-hidden="true"></div>
+<div class="live" id="liveStatus"><span class="dot"></span><span id="liveText">Spremno</span></div>
         <span class="shot-label" id="shotLabel">KADAR 01 / 06</span>
         <div class="cue" id="cue">Pogled ravno · neutralno lice</div>
         <button class="start-btn" id="start" type="button">Uključi kameru</button>
       </div>
       <div class="capturebar">
         <button id="flip" class="tool-circle" title="Promijeni kameru" aria-label="Promijeni kameru" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9a8.5 8.5 0 0 1 14-4"/><path d="m17 1 .5 4-4.5-.2"/><path d="M21 15a8.5 8.5 0 0 1-14 4"/><path d="m7 23-.5-4 4.5.2"/><path d="M8 9h8v6H8z"/></svg></button>
-        <div class="capture"><button id="shutter" class="shutter" disabled aria-label="Snimi" type="button"><span></span></button><span class="timer" id="timer"></span></div>
+        <div class="capture"><button id="shutter" class="shutter" disabled aria-label="Pokreni skeniranje lica" type="button"><span></span></button><span class="timer" id="timer"></span></div>
         <button id="guideToggle" class="tool-circle active" title="Prikaži ili sakrij vodič" aria-label="Prikaži ili sakrij vodič" aria-pressed="true" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 3H4v4M16 3h4v4M20 17v4h-4M4 17v4h4"/><circle cx="12" cy="12" r="3"/><path d="M12 6v2M12 16v2M6 12h2M16 12h2"/></svg></button>
       </div>
-      <div class="status" id="status" role="status" aria-live="polite">Kamera traži dopuštenje samo na uređaju. Snimke se ne šalju na poslužitelj.</div>
+      <div class="status" id="status" role="status" aria-live="polite">Kamera traži dopuštenje samo na uređaju. Snimke se ne šalju na poslužitelj.</div><div id="scanActions" class="scan-actions hide"><button id="manualCapture" class="manual" type="button">Snimi ručno</button><button id="cancelScan" class="cancel" type="button">Odustani</button></div>
     </section>
     <aside class="side">
       <div class="shots-top"><div><div class="overline">GUIDED SHOTS</div><h2 id="shotsHeading">Fotografije za referencu</h2></div><span class="counter" id="shotCounter">01 / 06</span></div>
@@ -135,5 +176,87 @@ opacity:.88;filter:drop-shadow(0 1px 8px #9efbd44a);transition:inset .2s}
   </div>
 </main>
 </div><script>
-const $=id=>document.getElementById(id);const photoShots=[['Sprijeda','Pogled ravno · neutralno lice','face'],['¾ lijevo','Okreni glavu 45° ulijevo','face'],['Lijevi profil','Okreni glavu 90° ulijevo','profile'],['¾ desno','Okreni glavu 45° udesno','face'],['Desni profil','Okreni glavu 90° udesno','profile'],['Puna figura','Odmakni se · cijelo tijelo u kadru','full']];const videoShots=[['Lice mirno','Lice sprijeda, gledaj u objektiv i miruj 8–12 sekundi.','face'],['Okret ulijevo','Polako okreni glavu sprijeda do lijevog profila, 8–12 s.','profile'],['Okret udesno','Polako okreni glavu sprijeda do desnog profila, 8–12 s.','profile'],['Izrazi lica','Neutralno lice, blag osmijeh pa opet neutralno, polako.','face'],['Puna figura','Cijelo tijelo u kadru, polako okreni tijelo oko osi.','full'],['Hod','Cijelo tijelo u kadru, napravi 2–3 polagana koraka.','full']];let shots=photoShots;let step=0,mode='photo',facing='user',stream=null,recorder=null,chunks=[],recording=false,ticker=null,elapsed=0,assets=[],guideOn=true;const camera=$('camera');function renderSteps(){$('steps').innerHTML=shots.map((shot,i)=>'<button type="button" class="step '+(i===step?'current':'')+'" data-step="'+i+'" aria-current="'+(i===step?'step':'false')+'"><span class="number">'+String(i+1).padStart(2,'0')+'</span><span class="step-copy">'+shot[0]+'<small>'+shot[1]+'</small></span></button>').join('');document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{if(recording)return;step=Number(b.dataset.step);renderSteps()});$('cue').textContent=shots[step][1];$('shotLabel').textContent='KADAR '+String(step+1).padStart(2,'0')+' / 06';$('shotCounter').textContent=String(step+1).padStart(2,'0')+' / 06';$('faceguide').className='frame '+(shots[step][2]==='face'?'':shots[step][2]);}renderSteps();function setStatus(m){$('status').textContent=m}async function stopStream(){if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}camera.srcObject=null}async function startCam(){if(recording)return;await stopStream();try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('Kamera je dostupna samo preko HTTPS-a ili localhosta.');let silent=false;const vid={facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}};try{stream=await navigator.mediaDevices.getUserMedia({audio:mode==='video',video:vid})}catch(firstError){if(mode!=='video')throw firstError;stream=await navigator.mediaDevices.getUserMedia({audio:false,video:vid});silent=true}camera.srcObject=stream;camera.classList.toggle('mirror',facing==='user');await camera.play();$('empty').classList.add('hide');$('liveText').textContent='Kamera aktivna';$('shutter').disabled=false;$('start').textContent='↻ Ponovno pokreni';$('start').classList.add('live-mode');setStatus(silent?'Kamera spremna. Mikrofon nije dostupan; video se snima bez zvuka.':'Kamera spremna. Odaberi kadar i snimi.')}catch(e){$('shutter').disabled=true;$('empty').classList.remove('hide');setStatus('Ne mogu uključiti kameru: '+e.message)}}$('start').onclick=startCam;$('flip').onclick=async()=>{facing=facing==='user'?'environment':'user';await startCam()};$('guideToggle').onclick=()=>{guideOn=!guideOn;document.querySelector('.guide').classList.toggle('hide',!guideOn);$('cue').classList.toggle('hide',!guideOn);$('guideToggle').classList.toggle('active',guideOn);$('guideToggle').setAttribute('aria-pressed',guideOn)};function selectMode(m){if(recording)return;mode=m;shots=m==='photo'?photoShots:videoShots;step=0;renderSteps();$('photoMode').classList.toggle('active',m==='photo');$('videoMode').classList.toggle('active',m==='video');$('photoMode').setAttribute('aria-pressed',m==='photo');$('videoMode').setAttribute('aria-pressed',m==='video');$('shotsHeading').textContent=m==='photo'?'Fotografije za referencu':'Video vodič: 6 kadrova';$('shutter').classList.toggle('record',m==='video');$('modeNote').textContent=m==='photo'?'Fotografije: dobro osvijetljeno lice, obje strane profila, ¾ kut i puna figura. Bez filtera, naočala i jakih sjena. Za svaku osobu odvojen set.':'Video: snimi 8–12 sekundi po kadru. Drži mobitel stabilno, koristi jednako osvjetljenje i bez filtera. Za svaku osobu odvojen set. Dodirni crveni okidač za početak i ponovno za kraj.';setStatus(m==='photo'?'Fotografija: odaberi kut i dodirni okidač.':'Video: odaberi pokret i snimaj 8–12 sekundi.');if(stream)startCam()}$('photoMode').onclick=()=>selectMode('photo');$('videoMode').onclick=()=>selectMode('video');function addAsset(blob,ext){const name=`referenca_${String(assets.length+1).padStart(2,'0')}_${shots[step][0].replaceAll(' ','_')}.${ext}`;const url=URL.createObjectURL(blob);assets.push({url,name,ext});$('count').textContent='('+assets.length+')';$('thumbs').innerHTML='';for(const a of assets){const d=document.createElement('div');d.className='thumb';const media=document.createElement(a.ext==='webm'||a.ext==='mp4'?'video':'img');media.src=a.url;if(media.tagName==='VIDEO'){media.muted=true;media.controls=true;media.playsInline=true}const link=document.createElement('a');link.href=a.url;link.download=a.name;link.textContent='Spremi';d.append(media,link);$('thumbs').append(d)}setStatus('Snimka spremljena u pregled. Dodirni Spremi za preuzimanje.');if(step<shots.length-1){step++;renderSteps()}}$('shutter').onclick=()=>{if(!stream)return;if(mode==='photo'){const c=document.createElement('canvas');c.width=camera.videoWidth;c.height=camera.videoHeight;const x=c.getContext('2d');if(facing==='user'){x.translate(c.width,0);x.scale(-1,1)}x.drawImage(camera,0,0);c.toBlob(b=>b&&addAsset(b,'jpg'),'image/jpeg',.94)}else{if(recording){recorder.stop();recording=false;clearInterval(ticker);$('timer').textContent='';$('shutter').classList.remove('recording');$('liveText').textContent='Kamera aktivna';$('liveStatus').classList.remove('recording');return}if(!window.MediaRecorder){setStatus('Ovaj preglednik ne podržava snimanje videa.');return}let type=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t));if(!type){setStatus('Video format nije podržan.');return}chunks=[];try{recorder=new MediaRecorder(stream,{mimeType:type});recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};const ext=type.includes('mp4')?'mp4':'webm';recorder.onstop=()=>{if(chunks.length){addAsset(new Blob(chunks,{type}),ext)}else{setStatus('Video nije spremljen: preglednik nije vratio podatke. Pokušaj ponovno.') }};recorder.onerror=e=>{setStatus('Pogreška videa: '+(e.error?.message||'Snimanje nije uspjelo.'))};recorder.start();recording=true;elapsed=0;$('timer').textContent='00:00';$('shutter').classList.add('recording');$('liveText').textContent='Snimanje';$('liveStatus').classList.add('recording');ticker=setInterval(()=>{elapsed++;$('timer').textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`},1000);setStatus('Snimanje u tijeku · ponovno pritisni za zaustavljanje.')}catch(e){setStatus('Snimanje nije pokrenuto: '+e.message)}}};$('downloadAll').onclick=()=>{if(!assets.length){setStatus('Nema snimaka za spremanje.');return}assets.forEach((a,i)=>setTimeout(()=>{const x=document.createElement('a');x.href=a.url;x.download=a.name;document.body.appendChild(x);x.click();x.remove()},i*350));setStatus('Preuzimanje svih snimaka pokrenuto; preglednik može zatražiti potvrdu.')};window.addEventListener('pagehide',()=>{if(recorder&&recording)recorder.stop();if(stream)stream.getTracks().forEach(t=>t.stop());assets.forEach(a=>URL.revokeObjectURL(a.url))});
+const $=id=>document.getElementById(id);const photoShots=[['Sprijeda','Pogled ravno · neutralno lice','face'],['¾ lijevo','Okreni glavu 45° ulijevo','face'],['Lijevi profil','Okreni glavu 90° ulijevo','profile'],['¾ desno','Okreni glavu 45° udesno','face'],['Desni profil','Okreni glavu 90° udesno','profile'],['Puna figura','Odmakni se · cijelo tijelo u kadru','full']];const videoShots=[['Lice mirno','Lice sprijeda, gledaj u objektiv i miruj 8–12 sekundi.','face'],['Okret ulijevo','Polako okreni glavu sprijeda do lijevog profila, 8–12 s.','profile'],['Okret udesno','Polako okreni glavu sprijeda do desnog profila, 8–12 s.','profile'],['Izrazi lica','Neutralno lice, blag osmijeh pa opet neutralno, polako.','face'],['Puna figura','Cijelo tijelo u kadru, polako okreni tijelo oko osi.','full'],['Hod','Cijelo tijelo u kadru, napravi 2–3 polagana koraka.','full']];let shots=photoShots;let step=0,mode='photo',facing='user',stream=null,recorder=null,chunks=[],recording=false,ticker=null,elapsed=0,assets=[],guideOn=true;const camera=$('camera');function renderSteps(){$('steps').innerHTML=shots.map((shot,i)=>'<button type="button" class="step '+(i===step?'current':'')+'" data-step="'+i+'" aria-current="'+(i===step?'step':'false')+'"><span class="number">'+String(i+1).padStart(2,'0')+'</span><span class="step-copy">'+shot[0]+'<small>'+shot[1]+'</small></span></button>').join('');document.querySelectorAll('[data-step]').forEach(b=>b.onclick=()=>{if(recording)return;if(scanArmed)cancelAutoScan();step=Number(b.dataset.step);renderSteps()});$('cue').textContent=shots[step][1];$('shotLabel').textContent='KADAR '+String(step+1).padStart(2,'0')+' / 06';$('shotCounter').textContent=String(step+1).padStart(2,'0')+' / 06';$('faceguide').className='frame '+(shots[step][2]==='face'?'':shots[step][2]);}renderSteps();
+let scanArmed=false,scanSequence=0,faceScanner=null;
+function hideScan(){
+  $('preview').classList.remove('scanning','is-green');
+  $('scanOverlay').classList.add('hide');
+  $('scanOverlay').classList.remove('is-green');
+  $('scanActions').classList.add('hide');
+  $('scanFill').style.width='0%';
+  $('shutter').setAttribute('aria-label',mode==='photo'?'Pokreni skeniranje lica':'Snimi ili zaustavi video');
+}
+function cancelAutoScan(message){
+  scanSequence++;
+  scanArmed=false;
+  if(faceScanner)faceScanner.stop();
+  hideScan();
+  if(message)setStatus(message);
+}
+function capturePhoto(){
+  if(!stream||camera.videoWidth<1||camera.videoHeight<1){
+    setStatus('Kamera nije spremna za fotografiranje.');
+    return false;
+  }
+  const c=document.createElement('canvas');
+  c.width=camera.videoWidth;c.height=camera.videoHeight;
+  const x=c.getContext('2d');
+  if(facing==='user'){x.translate(c.width,0);x.scale(-1,1)}
+  x.drawImage(camera,0,0);
+  c.toBlob(b=>b&&b.size?addAsset(b,'jpg'):setStatus('Fotografija nije spremljena. Pokušaj ponovno.'),'image/jpeg',.94);
+  return true;
+}
+async function armAutoScan(){
+  if(!stream||camera.videoWidth<1){
+    setStatus('Najprije uključi kameru.');
+    return;
+  }
+  scanArmed=true;
+  const sequence=++scanSequence;
+  $('scanOverlay').classList.remove('hide');
+  $('preview').classList.add('scanning');
+  $('scanActions').classList.remove('hide');
+  $('scanMessage').textContent='POKREĆEM SKENER';
+  $('shutter').setAttribute('aria-label','Zaustavi skeniranje');
+  setStatus('Analiza lica samo na ovom uređaju. Kad oznake postanu zelene, miruj.');
+  try{
+    const {makeFaceScanner}=await import('./scanner.js');
+    if(!scanArmed||sequence!==scanSequence)return;
+    if(faceScanner)faceScanner.stop();
+    faceScanner=makeFaceScanner({
+      video:camera,preview:$('preview'),canvas:$('scanCanvas'),
+      kind:()=>shots[step][2],mirrored:()=>facing==='user',
+      onUpdate:({phase,label,progress})=>{
+        if(!scanArmed||sequence!==scanSequence)return;
+        const green=phase==='hold'||phase==='captured';
+        $('scanOverlay').classList.toggle('is-green',green);
+        $('preview').classList.toggle('is-green',green);
+        $('scanMessage').textContent=label;
+        $('scanFill').style.width=Math.round(Math.max(0,Math.min(1,progress))*100)+'%';
+        if(phase==='hold')setStatus('Zeleno: miruj, fotografija će se sama snimiti.');
+      },
+      onCapture:()=>{
+        if(!scanArmed||sequence!==scanSequence)return;
+        cancelAutoScan();
+        $('scanFlash').classList.add('flash');
+        window.setTimeout(()=>$('scanFlash').classList.remove('flash'),110);
+        navigator.vibrate?.(35);
+        capturePhoto();
+      },
+      onError:(error)=>{
+        if(!scanArmed||sequence!==scanSequence)return;
+        $('scanMessage').textContent='SKENER NIJE DOSTUPAN';
+        setStatus('Detekcija nije uspjela: '+(error?.message||'nepoznata greška')+'. Možeš koristiti Snimi ručno.');
+      }
+    });
+    await faceScanner.start();
+  }catch(error){
+    if(!scanArmed||sequence!==scanSequence)return;
+    $('scanMessage').textContent='SKENER NIJE DOSTUPAN';
+    setStatus('Skener nije dostupan: '+(error?.message||'nepoznata greška')+'. Dostupno je ručno snimanje.');
+  }
+}
+$('manualCapture').onclick=()=>{cancelAutoScan();capturePhoto()};
+$('cancelScan').onclick=()=>cancelAutoScan('Skeniranje zaustavljeno.');
+function setStatus(m){$('status').textContent=m}async function stopStream(){if(scanArmed)cancelAutoScan();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}camera.srcObject=null}async function startCam(){if(recording)return;await stopStream();try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('Kamera je dostupna samo preko HTTPS-a ili localhosta.');let silent=false;const vid={facingMode:{ideal:facing},width:{ideal:1920},height:{ideal:1080}};try{stream=await navigator.mediaDevices.getUserMedia({audio:mode==='video',video:vid})}catch(firstError){if(mode!=='video')throw firstError;stream=await navigator.mediaDevices.getUserMedia({audio:false,video:vid});silent=true}camera.srcObject=stream;camera.classList.toggle('mirror',facing==='user');await camera.play();$('empty').classList.add('hide');$('liveText').textContent='Kamera aktivna';$('shutter').disabled=false;$('start').textContent='↻ Ponovno pokreni';$('start').classList.add('live-mode');setStatus(silent?'Kamera spremna. Mikrofon nije dostupan; video se snima bez zvuka.':'Kamera spremna. Odaberi kadar i snimi.')}catch(e){$('shutter').disabled=true;$('empty').classList.remove('hide');setStatus('Ne mogu uključiti kameru: '+e.message)}}$('start').onclick=startCam;$('flip').onclick=async()=>{facing=facing==='user'?'environment':'user';await startCam()};$('guideToggle').onclick=()=>{guideOn=!guideOn;document.querySelector('.guide').classList.toggle('hide',!guideOn);$('cue').classList.toggle('hide',!guideOn);$('guideToggle').classList.toggle('active',guideOn);$('guideToggle').setAttribute('aria-pressed',guideOn)};function selectMode(m){if(recording)return;if(scanArmed)cancelAutoScan();mode=m;shots=m==='photo'?photoShots:videoShots;step=0;renderSteps();$('photoMode').classList.toggle('active',m==='photo');$('videoMode').classList.toggle('active',m==='video');$('photoMode').setAttribute('aria-pressed',m==='photo');$('videoMode').setAttribute('aria-pressed',m==='video');$('shotsHeading').textContent=m==='photo'?'Fotografije za referencu':'Video vodič: 6 kadrova';$('shutter').classList.toggle('record',m==='video');$('shutter').setAttribute('aria-label',m==='photo'?'Pokreni skeniranje lica':'Snimi ili zaustavi video');$('modeNote').textContent=m==='photo'?'Fotografije: dobro osvijetljeno lice, obje strane profila, ¾ kut i puna figura. Bez filtera, naočala i jakih sjena. Za svaku osobu odvojen set.':'Video: snimi 8–12 sekundi po kadru. Drži mobitel stabilno, koristi jednako osvjetljenje i bez filtera. Za svaku osobu odvojen set. Dodirni crveni okidač za početak i ponovno za kraj.';setStatus(m==='photo'?'Fotografija: odaberi kut i dodirni okidač.':'Video: odaberi pokret i snimaj 8–12 sekundi.');if(stream)startCam()}$('photoMode').onclick=()=>selectMode('photo');$('videoMode').onclick=()=>selectMode('video');function addAsset(blob,ext){const name=`referenca_${String(assets.length+1).padStart(2,'0')}_${shots[step][0].replaceAll(' ','_')}.${ext}`;const url=URL.createObjectURL(blob);assets.push({url,name,ext});$('count').textContent='('+assets.length+')';$('thumbs').innerHTML='';for(const a of assets){const d=document.createElement('div');d.className='thumb';const media=document.createElement(a.ext==='webm'||a.ext==='mp4'?'video':'img');media.src=a.url;if(media.tagName==='VIDEO'){media.muted=true;media.controls=true;media.playsInline=true}const link=document.createElement('a');link.href=a.url;link.download=a.name;link.textContent='Spremi';d.append(media,link);$('thumbs').append(d)}setStatus('Snimka spremljena u pregled. Dodirni Spremi za preuzimanje.');if(step<shots.length-1){step++;renderSteps()}}$('shutter').onclick=()=>{if(!stream)return;if(mode==='photo'){if(scanArmed)cancelAutoScan('Skeniranje zaustavljeno.');else armAutoScan();return}else{if(recording){recorder.stop();recording=false;clearInterval(ticker);$('timer').textContent='';$('shutter').classList.remove('recording');$('liveText').textContent='Kamera aktivna';$('liveStatus').classList.remove('recording');return}if(!window.MediaRecorder){setStatus('Ovaj preglednik ne podržava snimanje videa.');return}let type=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported(t));if(!type){setStatus('Video format nije podržan.');return}chunks=[];try{recorder=new MediaRecorder(stream,{mimeType:type});recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};const ext=type.includes('mp4')?'mp4':'webm';recorder.onstop=()=>{if(chunks.length){addAsset(new Blob(chunks,{type}),ext)}else{setStatus('Video nije spremljen: preglednik nije vratio podatke. Pokušaj ponovno.') }};recorder.onerror=e=>{setStatus('Pogreška videa: '+(e.error?.message||'Snimanje nije uspjelo.'))};recorder.start();recording=true;elapsed=0;$('timer').textContent='00:00';$('shutter').classList.add('recording');$('liveText').textContent='Snimanje';$('liveStatus').classList.add('recording');ticker=setInterval(()=>{elapsed++;$('timer').textContent=`${String(Math.floor(elapsed/60)).padStart(2,'0')}:${String(elapsed%60).padStart(2,'0')}`},1000);setStatus('Snimanje u tijeku · ponovno pritisni za zaustavljanje.')}catch(e){setStatus('Snimanje nije pokrenuto: '+e.message)}}};$('downloadAll').onclick=()=>{if(!assets.length){setStatus('Nema snimaka za spremanje.');return}assets.forEach((a,i)=>setTimeout(()=>{const x=document.createElement('a');x.href=a.url;x.download=a.name;document.body.appendChild(x);x.click();x.remove()},i*350));setStatus('Preuzimanje svih snimaka pokrenuto; preglednik može zatražiti potvrdu.')};window.addEventListener('pagehide',()=>{if(scanArmed)cancelAutoScan();if(recorder&&recording)recorder.stop();if(stream)stream.getTracks().forEach(t=>t.stop());assets.forEach(a=>URL.revokeObjectURL(a.url))});
 </script></body></html>
